@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Arxiv](https://img.shields.io/badge/arXiv-2602.05711-b31b1b.svg)](https://arxiv.org/abs/2602.05711)
-[![Website](https://img.shields.io/badge/website-OmniMoE-yellow.svg)](https://omnimoeexpl-lhzzgsta.manus.space/)
+[![Website](https://img.shields.io/badge/website-online-yellow.svg)](https://omnimoeexpl-lhzzgsta.manus.space/)
 
 **English** | [简体中文](./README_zh.md)
 
