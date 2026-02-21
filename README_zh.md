@@ -2,6 +2,10 @@
 
 ![banner](./assets/omni_moe_banner.png)
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Arxiv](https://img.shields.io/badge/arXiv-2602.05711-b31b1b.svg)](https://arxiv.org/abs/2602.05711)
+[![Website](https://img.shields.io/badge/website-OmniMoE-yellow.svg)](https://omnimoeexpl-lhzzgsta.manus.space/)
+
 [English](./README.md) | **简体中文**
 
 </div>
