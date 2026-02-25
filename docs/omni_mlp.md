@@ -14,7 +14,7 @@ For each token, the MLP takes an input hidden state and applies the gate, up, an
 The primary user-facing API is the autograd-aware wrapper:
 
 ```python
-from omni_moe.ops.triton.omni_mlp import triton_omni_mlp_func
+from omni_moe.ops.triton import triton_omni_mlp_func
 
 y = triton_omni_mlp_func(x, gate_weight, up_weight, down_weight)
 ```

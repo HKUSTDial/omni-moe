@@ -2,7 +2,7 @@ import pytest
 import torch
 
 import testing
-from omni_moe.ops.triton.omni_mlp import triton_omni_mlp_func
+from omni_moe.ops.triton import triton_omni_mlp_func
 
 
 def pytorch_mlp_forward(

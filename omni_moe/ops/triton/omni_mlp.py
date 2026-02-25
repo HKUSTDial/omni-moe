@@ -2,7 +2,7 @@ import torch
 import triton
 import triton.language as tl
 
-from omni_moe.ops.triton import utils, activations
+from . import utils, activations
 
 
 @triton.autotune(
@@ -163,28 +163,3 @@ class TritonSwiGLUFunc(torch.autograd.Function):
         gate, up = ctx.saved_tensors
         dg, du = omni_swiglu_backward(gate, up, do)
         return dg, du
-
-
-def triton_omni_mlp_func(
-    x: torch.Tensor,
-    gate_weight: torch.Tensor,
-    up_weight: torch.Tensor,
-    down_weight: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Omni MLP function using Triton kernels.
-
-    :param x: Input tensor of shape (num_tokens, hidden_size)
-    :param gate_weight: Gate weight tensor of shape (intermediate_size, hidden_size)
-    :param up_weight: Up weight tensor of shape (intermediate_size, hidden_size)
-    :param down_weight: Down weight tensor of shape (hidden_size, intermediate_size)
-
-    :return y: Output tensor of shape (num_tokens, hidden_size)
-    """
-    return torch.matmul(
-        TritonSwiGLUFunc.apply(
-            torch.matmul(x, gate_weight.t()),
-            torch.matmul(x, up_weight.t()),
-        ),
-        down_weight.t(),
-    )

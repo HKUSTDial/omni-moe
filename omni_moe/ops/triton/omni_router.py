@@ -2,7 +2,7 @@ import torch
 import triton
 from triton import language as tl
 
-from omni_moe.ops.triton import utils
+from . import utils
 
 
 @triton.autotune(
@@ -403,25 +403,3 @@ class OmniRouterFunc(torch.autograd.Function):
         )
 
         return drouter_logits_x, drouter_logits_y, None, None
-
-
-def triton_omni_router_func(
-    router_logits_x: torch.Tensor,
-    router_logits_y: torch.Tensor,
-    num_expert_sqrt: int,
-    num_experts_per_token: int,
-):
-    """
-    Omni router function using triton kernels.
-
-    :param router_logits_x: (num_tokens, num_expert_sqrt)
-    :param router_logits_y: (num_tokens, num_expert_sqrt)
-    :param num_expert_sqrt: int
-    :param num_experts_per_token: int
-
-    :return scores: (num_tokens, num_experts_per_token)
-    :return indices: (num_tokens, num_experts_per_token)
-    """
-    return OmniRouterFunc.apply(
-        router_logits_x, router_logits_y, num_expert_sqrt, num_experts_per_token
-    )

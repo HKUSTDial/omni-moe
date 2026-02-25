@@ -55,7 +55,7 @@ def get_scheduling_info(
     num_tokens, num_experts_per_token = G.shape
 
     # Determine if grouping is possible
-    is_group = (num_tokens * num_experts_per_token / num_experts) > group_size ** 2
+    is_group = (num_tokens * num_experts_per_token / num_experts) > group_size**2
 
     # Initialize basic info
     token_ids = (

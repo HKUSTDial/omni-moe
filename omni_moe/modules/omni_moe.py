@@ -4,9 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers.activations import ACT2FN
 
-from omni_moe.ops.triton.omni_mlp import triton_omni_mlp_func
-from omni_moe.ops.triton.omni_router import triton_omni_router_func
-from omni_moe.ops.triton.omni_expert import triton_omni_expert_func
+from omni_moe.ops.triton import (
+    triton_omni_mlp_func,
+    triton_omni_router_func,
+    triton_omni_expert_func,
+)
 
 
 class OmniMoEConfig:
@@ -104,7 +106,7 @@ class OmniMoE(nn.Module):
         return hidden_states
 
 
-class OmniMoE_Pytorch(nn.Module):
+class OmniMoE_Torch(nn.Module):
     def __init__(self, config: OmniMoEConfig):
         super().__init__()
         self.hidden_size = config.hidden_size
