@@ -14,7 +14,7 @@ For each token, the expert module applies a up projection to compute expert scor
 The primary user-facing API is the autograd-aware wrapper:
 
 ```python
-from omni_moe.ops.triton.omni_expert import triton_omni_expert_func
+from omni_moe.ops.triton import triton_omni_expert_func
 
 expert_states = triton_omni_expert_func(hidden_states, up_weights, down_weights, routing_weights, indices)
 ```

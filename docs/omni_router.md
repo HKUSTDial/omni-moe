@@ -14,7 +14,7 @@ For each token, the router takes two 1D logit vectors of length $N$ and forms al
 The primary user‑facing API is the autograd‑aware wrapper:
 
 ```python
-from omni_moe.triton.omni_router import triton_omni_router_func
+from omni_moe.ops.triton import triton_omni_router_func
 
 scores, indices = triton_omni_router_func(router_logits_x, router_logits_y, num_expert_sqrt, num_experts_per_token)
 ```
