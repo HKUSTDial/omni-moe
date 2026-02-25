@@ -2,7 +2,7 @@ import pytest
 import torch
 
 import testing
-from omni_moe.triton.omni_router import triton_omni_router_func
+from omni_moe.ops.triton import triton_omni_router_func
 
 
 def pytorch_router_forward(

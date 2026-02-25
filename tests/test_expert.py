@@ -2,7 +2,7 @@ import pytest
 import torch
 
 import testing
-from omni_moe.ops.triton.omni_expert import triton_omni_expert_func
+from omni_moe.ops.triton import triton_omni_expert_func
 
 
 def pytorch_expert_forward(
