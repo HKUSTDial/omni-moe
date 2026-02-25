@@ -55,7 +55,7 @@ def triton_omni_expert_func(
     x: torch.Tensor,
     up_weight: torch.Tensor,
     down_weight: torch.Tensor,
-    routing_weight: torch.Tensor,
+    routing_weights: torch.Tensor,
     indices: torch.Tensor,
 ):
     """
@@ -64,9 +64,9 @@ def triton_omni_expert_func(
     :param x: Input tensor of shape (num_tokens, hidden_size)
     :param up_weight: Up weight tensor of shape (num_experts, hidden_size)
     :param down_weight: Down weight tensor of shape (num_experts, hidden_size)
-    :param routing_weight: Routing weight tensor of shape (num_tokens, num_experts_per_token)
+    :param routing_weights: Routing weights tensor of shape (num_tokens, num_experts_per_token)
     :param indices: Indices of the selected experts for each token of shape (num_tokens, num_experts_per_token)
 
     :return y: Output tensor of shape (num_tokens, hidden_size)
     """
-    return OmniExpertFunc.apply(x, up_weight, down_weight, routing_weight, indices)
+    return OmniExpertFunc.apply(x, up_weight, down_weight, routing_weights, indices)
