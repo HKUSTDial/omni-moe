@@ -16,26 +16,26 @@ The primary user-facing API is the autograd-aware wrapper:
 ```python
 from omni_moe.ops.triton import triton_omni_expert_func
 
-expert_states = triton_omni_expert_func(hidden_states, up_weights, down_weights, routing_weights, indices)
+expert_states = triton_omni_expert_func(hidden_states, up_weight, down_weight, routing_weights, indices)
 ```
 
 **Parameters**
 
-- `hidden_states` (`torch.Tensor`):
+- `x` (`torch.Tensor`):
     - shape: `(num_tokens, hidden_size)`
     - dtype: typically `torch.float32` or `torch.float16` or `torch.bfloat16`
     - device: CUDA tensor
-- `up_weights` (`torch.Tensor`):
+- `up_weight` (`torch.Tensor`):
     - shape: `(num_experts, hidden_size)`
-    - dtype: same as `hidden_states`
+    - dtype: same as `x`
     - device: CUDA tensor
-- `down_weights` (`torch.Tensor`):
+- `down_weight` (`torch.Tensor`):
     - shape: `(num_experts, hidden_size)`
-    - dtype: same as `hidden_states`
+    - dtype: same as `x`
     - device: CUDA tensor
 - `routing_weights` (`torch.Tensor`):
     - shape: `(num_tokens, num_experts_per_token)`
-    - dtype: same as `hidden_states`
+    - dtype: same as `x`
     - device: CUDA tensor
 - `indices` (`torch.Tensor`):
     - shape: `(num_tokens, num_experts_per_token)`
@@ -44,9 +44,9 @@ expert_states = triton_omni_expert_func(hidden_states, up_weights, down_weights,
 
 **Returns**
 
-- `expert_states` (`torch.Tensor`):
+- `y` (`torch.Tensor`):
     - shape: `(num_tokens, hidden_size)`
-    - dtype: same as `hidden_states`
+    - dtype: same as `x`
 
 
 ## Testing
