@@ -2,7 +2,7 @@ import torch
 import triton
 from triton import language as tl
 
-from omni_moe.ops.triton import utils, activations, omni_scheduler
+from . import utils, activations, omni_scheduler
 
 
 @triton.autotune(
@@ -1355,11 +1355,3 @@ class OmniExpertFunc(torch.autograd.Function):
         )
 
         return dx, dw, dv, dg, None
-
-
-def triton_omni_expert_func(
-    hidden_states, up_weights, down_weights, routing_weights, indices
-):
-    return OmniExpertFunc.apply(
-        hidden_states, up_weights, down_weights, routing_weights, indices
-    )
