@@ -13,37 +13,44 @@ from . import utils
 def _fwd_kernel(
     S_X,
     S_Y,
+    I_X,
+    I_Y,
     S,
     INDICES,
     stride_sxm,
     stride_sxn,
     stride_sym,
     stride_syn,
+    stride_ixm,
+    stride_ixn,
+    stride_iym,
+    stride_iyn,
     stride_sm,
     stride_sk,
     stride_im,
     stride_ik,
     num_tokens,
+    topk: tl.constexpr,
     num_expert_sqrt: tl.constexpr,
     num_experts_per_token: tl.constexpr,
-    num_experts: tl.constexpr,
+    topk_square: tl.constexpr,
     TILE_M: tl.constexpr,
 ):
     m_block = tl.program_id(0)
 
     # Initialize offsets
-    offs_n = tl.arange(0, num_experts)
+    offs_n = tl.arange(0, topk_square)
 
     # Compute expert coordinates
-    ix = offs_n // num_expert_sqrt
-    iy = offs_n - ix * num_expert_sqrt
+    ix = offs_n // topk
+    iy = offs_n - ix * topk
 
     # TODO: Can't vectorize top-k in triton now, only slow loop can be used
     # I think top-k based router is difficult to implement efficiently in triton
     # we need to be improved to another better algorithm in the future
     # Loop-based topk O(k) iterations, each with max+argmax
     # This is faster than bitonic sort when k << n
-    mask_n = offs_n < num_experts
+    mask_n = offs_n < topk**2
     for m in range(TILE_M):
         m_idx = m_block * TILE_M + m
         mask_m = m_idx < num_tokens
@@ -63,133 +70,29 @@ def _fwd_kernel(
         scores = scores_x + scores_y
 
         # Top-k selection
-        # For triton, loop is faster than unrolling when num_experts is small
+        # For triton, loop is faster than unrolling when num_experts_per_token is small
         for k in range(num_experts_per_token):
             # Find max score and index
             max_score = tl.max(scores, axis=0)
-            max_index = tl.argmax(scores, axis=0)
+            max_local_index = tl.argmax(scores, axis=0)
+
+            # Remap local index to global index
+            local_ix = max_local_index // topk
+            local_iy = max_local_index - local_ix * topk
+            indices_x = tl.load(
+                I_X + m_idx * stride_ixm + local_ix * stride_ixn, mask=mask_m, other=0
+            )
+            indices_y = tl.load(
+                I_Y + m_idx * stride_iym + local_iy * stride_iyn, mask=mask_m, other=0
+            )
+            max_index = indices_x * num_expert_sqrt + indices_y
 
             # Store score and index
             tl.store(scores_ptr + k * stride_sk, max_score, mask=mask_m)
             tl.store(indices_ptr + k * stride_ik, max_index, mask=mask_m)
 
             # Set selected scores to -inf for next iteration
-            scores = tl.where(offs_n == max_index, -float("inf"), scores)
-
-
-@triton.autotune(
-    configs=utils.get_router_fwd_split_experts_autotune_configs(),
-    key=utils.ROUTER_FWD_SPLIT_EXPERTS_AUTOTUNE_KEYS,
-)
-@triton.jit
-def _fwd_split_experts_kernel(
-    S_X,
-    S_Y,
-    S,
-    INDICES,
-    stride_sxm,
-    stride_sxn,
-    stride_sym,
-    stride_syn,
-    stride_sm,
-    stride_sk,
-    stride_im,
-    stride_ik,
-    num_tokens,
-    num_expert_sqrt: tl.constexpr,
-    num_experts_per_token: tl.constexpr,
-    num_experts: tl.constexpr,
-    TILE_M: tl.constexpr,
-    TILE_N: tl.constexpr,
-):
-    m_block = tl.program_id(0)
-
-    # Initialize offsets
-    offs_nb = tl.arange(0, TILE_N)
-    offs_k = tl.arange(0, num_experts_per_token)
-
-    # Loop over tokens in blocks of TILE_M
-    # TODO: same issue of top-k as above, need better algorithm
-    for m in range(TILE_M):
-        m_idx = m_block * TILE_M + m
-        mask_m = m_idx < num_tokens
-
-        # Initialize pointers
-        scores_x_ptr = S_X + m_idx * stride_sxm
-        scores_y_ptr = S_Y + m_idx * stride_sym
-        scores_ptr = S + m_idx * stride_sm + offs_k * stride_sk
-        indices_ptr = INDICES + m_idx * stride_im + offs_k * stride_ik
-
-        # Initialize scores and indices
-        topk_scores = tl.full((num_experts_per_token,), -float("inf"), dtype=tl.float32)
-        topk_indices = tl.full((num_experts_per_token,), -1, dtype=tl.int32)
-
-        # Loop over experts in blocks of TILE_N
-        for start_expert in range(0, num_experts, TILE_N):
-            start_expert = tl.multiple_of(start_expert, TILE_N)
-            offs_n = offs_nb + start_expert
-
-            # Compute expert coordinates
-            ix = offs_n // num_expert_sqrt
-            iy = offs_n - ix * num_expert_sqrt
-
-            # Create mask
-            mask_n = offs_n < num_experts
-            mask = mask_n & mask_m
-
-            # Load scores_x and scores_y
-            scores_x = tl.load(
-                scores_x_ptr + ix * stride_sxn,
-                mask=mask,
-                other=-float("inf"),
-            )
-            scores_y = tl.load(
-                scores_y_ptr + iy * stride_syn,
-                mask=mask,
-                other=-float("inf"),
-            )
-
-            # Compute combined scores
-            scores = (scores_x + scores_y).to(tl.float32)
-
-            # Top-k selection within this block
-            for k in range(num_experts_per_token):
-                # Find max score and index
-                max_score = tl.max(scores, axis=0)
-                max_index = tl.argmax(scores, axis=0)
-
-                # Get current top-k score for comparison
-                current_score = tl.where(offs_k == k, topk_scores, -float("inf"))
-                current_max_score = tl.max(current_score, axis=0)
-
-                # Update top-k if found a better score
-                if max_score > current_max_score:
-                    # Shift down lower scores in top-k
-                    for shift_k in range(num_experts_per_token - 1, k, -1):
-                        prev_score = tl.where(offs_k == shift_k - 1, topk_scores, 0.0)
-                        prev_index = tl.where(offs_k == shift_k - 1, topk_indices, -1)
-                        topk_scores = tl.where(
-                            offs_k == shift_k,
-                            tl.max(prev_score, axis=0),
-                            topk_scores,
-                        )
-                        topk_indices = tl.where(
-                            offs_k == shift_k,
-                            tl.max(prev_index, axis=0),
-                            topk_indices,
-                        )
-                    topk_scores = tl.where(offs_k == k, max_score, topk_scores)
-                    topk_indices = tl.where(
-                        offs_k == k, max_index + start_expert, topk_indices
-                    )
-
-                    # Mask out selected element from scores
-                    scores = tl.where(offs_nb == max_index, -float("inf"), scores)
-
-        # Store final top-k scores and indices
-        mask = mask_m & (offs_k < num_experts_per_token)
-        tl.store(scores_ptr, topk_scores, mask=mask)
-        tl.store(indices_ptr, topk_indices, mask=mask)
+            scores = tl.where(offs_n == max_local_index, -float("inf"), scores)
 
 
 @triton.autotune(
@@ -275,12 +178,21 @@ def _omni_router_forward(
         num_experts_per_token,
     )
     num_tokens = router_logits_x.size(0)
+    topk = min(num_expert_sqrt, num_experts_per_token)
+    topk_square = triton.next_power_of_2(topk**2)
+
+    # For efficiency, we use torch.topk to get candidate experts
+    # Because triton's topk does not return indices, and we need indices for the router
+    topk_scores_x, topk_indices_x = torch.topk(router_logits_x, topk, dim=-1)
+    topk_scores_y, topk_indices_y = torch.topk(router_logits_y, topk, dim=-1)
+    topk_indices_x = topk_indices_x.to(torch.int32)
+    topk_indices_y = topk_indices_y.to(torch.int32)
 
     # Allocate outputs
     scores = torch.empty(
         (num_tokens, num_experts_per_token),
         device=router_logits_x.device,
-        dtype=torch.float32,
+        dtype=router_logits_x.dtype,
     )
     indices = torch.empty(
         (num_tokens, num_experts_per_token),
@@ -288,53 +200,36 @@ def _omni_router_forward(
         dtype=torch.int32,
     )
 
-    # Compute total number of experts
-    num_experts = triton.next_power_of_2(num_expert_sqrt * num_expert_sqrt)
-
     def grid(META):
         return (triton.cdiv(num_tokens, META["TILE_M"]),)
 
-    # If num_expert_sqrt is small, use lightweight kernel
-    if num_expert_sqrt < 128:
-        _fwd_kernel[grid](
-            router_logits_x,
-            router_logits_y,
-            scores,
-            indices,
-            router_logits_x.stride(0),
-            router_logits_x.stride(1),
-            router_logits_y.stride(0),
-            router_logits_y.stride(1),
-            scores.stride(0),
-            scores.stride(1),
-            indices.stride(0),
-            indices.stride(1),
-            num_tokens,
-            num_expert_sqrt,
-            num_experts_per_token,
-            num_experts,
-        )
-    else:
-        _fwd_split_experts_kernel[grid](
-            router_logits_x,
-            router_logits_y,
-            scores,
-            indices,
-            router_logits_x.stride(0),
-            router_logits_x.stride(1),
-            router_logits_y.stride(0),
-            router_logits_y.stride(1),
-            scores.stride(0),
-            scores.stride(1),
-            indices.stride(0),
-            indices.stride(1),
-            num_tokens,
-            num_expert_sqrt,
-            num_experts_per_token,
-            num_experts,
-        )
+    _fwd_kernel[grid](
+        topk_scores_x,
+        topk_scores_y,
+        topk_indices_x,
+        topk_indices_y,
+        scores,
+        indices,
+        topk_scores_x.stride(0),
+        topk_scores_x.stride(1),
+        topk_scores_y.stride(0),
+        topk_scores_y.stride(1),
+        topk_indices_x.stride(0),
+        topk_indices_x.stride(1),
+        topk_indices_y.stride(0),
+        topk_indices_y.stride(1),
+        scores.stride(0),
+        scores.stride(1),
+        indices.stride(0),
+        indices.stride(1),
+        num_tokens,
+        topk,
+        num_expert_sqrt,
+        num_experts_per_token,
+        topk_square,
+    )
 
-    return scores.to(router_logits_x.dtype), indices
+    return scores, indices
 
 
 def _omni_router_backward(
