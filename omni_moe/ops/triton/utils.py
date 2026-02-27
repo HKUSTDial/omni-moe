@@ -112,17 +112,10 @@ MLP_BWD_AUTOTUNE_KEYS = ["intermediate_size"]
 
 ROUTER_FWD_AUTOTUNE_KEYS = [
     "num_tokens",
+    "topk",
     "num_expert_sqrt",
     "num_experts_per_token",
-    "num_experts",
-]
-
-
-ROUTER_FWD_SPLIT_EXPERTS_AUTOTUNE_KEYS = [
-    "num_tokens",
-    "num_expert_sqrt",
-    "num_experts_per_token",
-    "num_experts",
+    "topk_square",
 ]
 
 
@@ -246,41 +239,6 @@ def get_router_fwd_autotune_configs():
                         num_stages=ns,
                     )
                 )
-    return configs
-
-
-def get_router_fwd_split_experts_autotune_configs():
-    """
-    Get autotuning configurations for the router forward split experts kernel.
-
-    :return configs: List of triton.Config objects
-    """
-    device = get_device()
-    arch = get_arch(device)
-
-    if arch == "N/A":
-        raise ValueError("Your device architecture is not supported for now.")
-
-    configs = []
-    BLOCK_M_OPTIONS = [1]
-    BLOCK_N_OPTIONS = [1024, 2048, 4096, 8192, 16384]
-    NUM_WARPS_OPTIONS = [2, 4]
-    NUM_STAGES_OPTION = [1, 2]
-
-    for bm in BLOCK_M_OPTIONS:
-        for bn in BLOCK_N_OPTIONS:
-            for nw in NUM_WARPS_OPTIONS:
-                for ns in NUM_STAGES_OPTION:
-                    configs.append(
-                        triton.Config(
-                            {
-                                "TILE_M": bm,
-                                "TILE_N": bn,
-                            },
-                            num_warps=nw,
-                            num_stages=ns,
-                        )
-                    )
     return configs
 
 
