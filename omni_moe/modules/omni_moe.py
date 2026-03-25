@@ -159,8 +159,12 @@ class OmniMoE_Torch(nn.Module):
         router_log_probs_y = F.log_softmax(router_logits_y, dim=-1)
 
         # get experts with the highest routing probabilities
-        scores_x, indices_x = router_log_probs_x.topk(self.num_expert_sqrt, dim=-1)
-        scores_y, indices_y = router_log_probs_y.topk(self.num_expert_sqrt, dim=-1)
+        scores_x, indices_x = router_log_probs_x.topk(
+            min(self.num_expert_sqrt, self.top_k), dim=-1
+        )
+        scores_y, indices_y = router_log_probs_y.topk(
+            min(self.num_expert_sqrt, self.top_k), dim=-1
+        )
         all_scores = scores_x.unsqueeze(-1) + scores_y.unsqueeze(-2)
         all_indices = indices_x.unsqueeze(
             -1
