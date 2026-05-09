@@ -15,6 +15,7 @@ requires-python = ">=3.8"
 dependencies = [
   "torch",
   "triton",
+  "triton-kernels @ git+https://github.com/triton-lang/triton@main#subdirectory=python/triton_kernels",
   "transformers",
 ]
 classifiers = [
