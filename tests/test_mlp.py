@@ -11,9 +11,12 @@ def pytorch_mlp_forward(
     up_weight: torch.Tensor,
     down_weight: torch.Tensor,
 ) -> torch.Tensor:
+    orig_dtype = x.dtype
     gate_activations = torch.matmul(x, gate_weight.t())
     up_activations = torch.matmul(x, up_weight.t())
-    hidden_states = torch.nn.functional.silu(gate_activations) * up_activations
+    hidden_states = (
+        torch.nn.functional.silu(gate_activations.float()) * up_activations.float()
+    ).to(orig_dtype)
     out = torch.matmul(hidden_states, down_weight.t())
     return out
 
